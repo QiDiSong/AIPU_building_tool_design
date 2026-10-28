@@ -165,19 +165,21 @@ struct ImportPass : PassWrapper<ImportPass, OperationPass<ModuleOp>> {
     types.addConversion([](Type type) { return type; });
     types.addConversion(
         [](RankedTensorType type) -> Type { return tileTypeForTensor(type); });
+    // Value-returning callbacks also work with SDKs that wrap materializations
+    // in std::optional<Value>. Each direction has a single supported bridge.
     types.addTargetMaterialization([](OpBuilder &builder, TileType result,
                                       ValueRange inputs,
-                                      Location loc) -> std::optional<Value> {
+                                      Location loc) -> Value {
       if (inputs.size() != 1 || !isa<RankedTensorType>(inputs[0].getType()))
-        return std::nullopt;
+        return Value{};
       return builder.create<aiputile::FromTensorOp>(loc, result, inputs[0])
           .getOutput();
     });
     types.addSourceMaterialization(
         [](OpBuilder &builder, RankedTensorType result, ValueRange inputs,
-           Location loc) -> std::optional<Value> {
+           Location loc) -> Value {
           if (inputs.size() != 1 || !isa<TileType>(inputs[0].getType()))
-            return std::nullopt;
+            return Value{};
           return builder.create<aiputile::ToTensorOp>(loc, result, inputs[0])
               .getOutput();
         });
